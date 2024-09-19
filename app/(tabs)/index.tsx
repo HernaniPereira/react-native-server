@@ -4,8 +4,78 @@ import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useState, useEffect } from 'react';
+import StaticServer from '@dr.pogodin/react-native-static-server';
+import RNFetchBlob from 'rn-fetch-blob'
+import { WebView } from 'react-native-webview'
+import RNFS from 'react-native-fs';
+import React from 'react';
+import { useStaticServer } from '@/hooks/useStaticServer';
+
+// For android 
+const copyAssetsFolderContents = async (
+  sourcePath: string,
+  targetPath: string,
+): Promise<void> => {
+
+  try {
+    const items = await RNFS.readDirAssets(sourcePath);
+    const targetExists = await RNFS.exists(targetPath);
+    if (!targetExists) {
+      await RNFS.mkdir(targetPath);
+    }
+
+    for (const item of items) {
+      const sourceItemPath = `${sourcePath}/${item.name}`;
+      const targetItemPath = `${targetPath}/${item.name}`;
+
+
+      if (item.isDirectory()) {
+        await copyAssetsFolderContents(sourceItemPath, targetItemPath);
+      } else {
+        await RNFS.copyFileAssets(sourceItemPath, targetItemPath);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to copy assets folder contents:', error);
+    throw error;
+  }
+};
 
 export default function HomeScreen() {
+  const [folderWasCreated, setFolderWasCreated] = useState<boolean>(false);
+  const url = useStaticServer(folderWasCreated);
+  console.log(url)
+  const ASSETS_FOLDER_NAME: string = 'build';
+  const DOCUMENT_FOLDER_PATH: string = `${RNFS.DocumentDirectoryPath}/${ASSETS_FOLDER_NAME}`;
+
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      copyAssetsFolderContents(ASSETS_FOLDER_NAME, DOCUMENT_FOLDER_PATH)
+        .then(() => {
+          console.log('Build folder contents copied successfully.');
+          setFolderWasCreated(true);
+        })
+        .catch(error => {
+          console.error('Error copying build folder contents:', error);
+        });
+    }
+
+  }, []);
+
+  if (url !== '') {
+    return (<WebView
+      webviewDebuggingEnabled
+      source={{ uri: url }}
+      style={styles.webview}
+      onError={(syntheticEvent) => {
+        const { nativeEvent } = syntheticEvent;
+        console.warn('WebView error: ', nativeEvent);
+      }}
+    />)
+  }
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -15,37 +85,8 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
+
+
     </ParallaxScrollView>
   );
 }
@@ -67,4 +108,5 @@ const styles = StyleSheet.create({
     left: 0,
     position: 'absolute',
   },
+  webview: { flex: 1 }
 });
