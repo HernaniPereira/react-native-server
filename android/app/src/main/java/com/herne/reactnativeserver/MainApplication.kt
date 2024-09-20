@@ -1,4 +1,4 @@
-package com.reactnativeserver
+package com.herne.reactnativeserver
 
 import android.app.Application
 import android.content.res.Configuration

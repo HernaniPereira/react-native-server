@@ -1,4 +1,4 @@
-package com.reactnativeserver
+package com.herne.reactnativeserver
 
 import android.os.Build
 import android.os.Bundle
